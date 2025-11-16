@@ -1,0 +1,40 @@
+{
+  "name": "js-image-grid",
+  "version": "1.0.0",
+  "description": "A vanilla JavaScript library for overlaying resizable grids on images",
+  "main": "dist/js-image-grid.min.js",
+  "module": "dist/js-image-grid.esm.js",
+  "exports": {
+    ".": {
+      "import": "./dist/js-image-grid.esm.js",
+      "require": "./dist/js-image-grid.min.js"
+    },
+    "./dist/*.css": "./dist/*.css"
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "scripts": {
+    "build": "npm run build:js && npm run build:css && npm run build:copy",
+    "build:js": "rollup -c",
+    "build:css": "cleancss -o dist/js-image-grid.min.css js-image-grid.css --source-map",
+    "build:copy": "node scripts/copy-example.js",
+    "prebuild": "mkdir -p dist"
+  },
+  "keywords": [
+    "grid",
+    "image",
+    "overlay",
+    "alignment",
+    "design-system",
+    "vanilla-js"
+  ],
+  "author": "Codevera-ai",
+  "license": "MIT",
+  "devDependencies": {
+    "@rollup/plugin-terser": "^0.4.4",
+    "clean-css-cli": "^5.6.3",
+    "rollup": "^4.28.1"
+  }
+}
