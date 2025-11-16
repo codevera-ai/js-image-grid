@@ -4,14 +4,22 @@
  * Free for developers to use
  */
 
+// Global grid manager to track multiple grids per image
+const gridManagers = new WeakMap();
+let nextGridId = 1;
+
 class ImageGrid {
-  constructor(image) {
+  constructor(image, options = {}) {
     this.image = image;
-    this.cols = parseInt(image.dataset.jsImageGridCols) || 12;
-    this.rows = parseInt(image.dataset.jsImageGridRows) || 12;
-    this.lineWidth = parseInt(image.dataset.jsImageGridLineWidth) || 1;
-    this.color = image.dataset.jsImageGridColor || '#ff0000';
-    this.maintainAspectRatio = image.dataset.jsImageGridMaintainAspectRatio === 'true';
+    this.id = options.id || `grid-${nextGridId++}`;
+    this.name = options.name || `Grid ${this.id.replace('grid-', '')}`;
+    this.cols = options.cols || parseInt(image.dataset.jsImageGridCols) || 12;
+    this.rows = options.rows || parseInt(image.dataset.jsImageGridRows) || 12;
+    this.lineWidth = options.lineWidth || parseInt(image.dataset.jsImageGridLineWidth) || 1;
+    this.color = options.color || image.dataset.jsImageGridColor || '#ff0000';
+    this.maintainAspectRatio = options.maintainAspectRatio !== undefined
+      ? options.maintainAspectRatio
+      : image.dataset.jsImageGridMaintainAspectRatio === 'true';
 
     this.overlay = null;
     this.canvas = null;
@@ -26,8 +34,11 @@ class ImageGrid {
     this.gridX = 0;
     this.gridY = 0;
     this.aspectRatio = 0;
+    this.isActive = false;
+    this.isVisible = true;
 
     this.init();
+    this.registerWithManager();
   }
 
   init() {
@@ -47,6 +58,14 @@ class ImageGrid {
     this.attachEvents();
   }
 
+  registerWithManager() {
+    if (!gridManagers.has(this.image)) {
+      gridManagers.set(this.image, new GridManager(this.image));
+    }
+    const manager = gridManagers.get(this.image);
+    manager.addGrid(this);
+  }
+
   createOverlay() {
     // Wrap image if not already wrapped
     if (!this.image.parentElement.classList.contains('js-image-grid-wrapper')) {
@@ -58,6 +77,7 @@ class ImageGrid {
 
     this.overlay = document.createElement('div');
     this.overlay.className = 'js-image-grid-overlay';
+    this.overlay.dataset.gridId = this.id;
     this.image.parentElement.appendChild(this.overlay);
 
     // Set initial size to match image
@@ -336,11 +356,187 @@ class ImageGrid {
     this.updateCanvasSize();
   }
 
+  setActive(active) {
+    this.isActive = active;
+    if (active) {
+      this.overlay.classList.add('js-image-grid-active');
+      this.show();
+    } else {
+      this.overlay.classList.remove('js-image-grid-active');
+      this.hide();
+    }
+  }
+
+  show() {
+    this.isVisible = true;
+    this.overlay.style.display = '';
+  }
+
+  hide() {
+    this.isVisible = false;
+    this.overlay.style.display = 'none';
+  }
+
   destroy() {
+    if (gridManagers.has(this.image)) {
+      const manager = gridManagers.get(this.image);
+      manager.removeGrid(this.id);
+    }
     if (this.overlay && this.overlay.parentElement) {
       this.overlay.remove();
     }
   }
+}
+
+// Grid Manager class to handle multiple grids per image
+class GridManager {
+  constructor(image) {
+    this.image = image;
+    this.grids = [];
+    this.activeGrid = null;
+    this.picker = null;
+  }
+
+  addGrid(grid) {
+    this.grids.push(grid);
+
+    // Set first grid as active
+    if (this.grids.length === 1) {
+      this.setActiveGrid(grid.id);
+    } else {
+      // Hide new grids by default when there are multiple
+      grid.hide();
+    }
+
+    // Show picker when we have 2+ grids
+    this.updatePicker();
+  }
+
+  removeGrid(gridId) {
+    const index = this.grids.findIndex(g => g.id === gridId);
+    if (index !== -1) {
+      this.grids.splice(index, 1);
+    }
+
+    // If active grid was removed, activate first grid
+    if (this.activeGrid?.id === gridId && this.grids.length > 0) {
+      this.setActiveGrid(this.grids[0].id);
+    }
+
+    this.updatePicker();
+  }
+
+  setActiveGrid(gridId) {
+    // Hide all grids first
+    this.grids.forEach(g => {
+      g.setActive(false);
+    });
+
+    // Find and activate new grid
+    const grid = this.grids.find(g => g.id === gridId);
+    if (grid) {
+      this.activeGrid = grid;
+      grid.setActive(true);
+
+      // Update picker UI
+      this.updatePickerSelection();
+    }
+  }
+
+  addNewGrid() {
+    // Create varied grid configurations for testing
+    const gridConfigs = [
+      { cols: 12, rows: 12, lineWidth: 1, color: '#ff0000', name: 'Grid 1 (12×12 Red)' },
+      { cols: 16, rows: 10, lineWidth: 1, color: '#0000ff', name: 'Grid 2 (16×10 Blue)' },
+      { cols: 8, rows: 8, lineWidth: 3, color: '#00ff00', name: 'Grid 3 (8×8 Green Thick)' },
+      { cols: 20, rows: 15, lineWidth: 1, color: '#ff6600', name: 'Grid 4 (20×15 Orange)' },
+      { cols: 10, rows: 10, lineWidth: 2, color: '#ff00ff', name: 'Grid 5 (10×10 Magenta)' },
+      { cols: 24, rows: 18, lineWidth: 1, color: '#00ffff', name: 'Grid 6 (24×18 Cyan)' },
+    ];
+
+    // Get the next config based on current grid count
+    const configIndex = this.grids.length % gridConfigs.length;
+    const config = gridConfigs[configIndex];
+
+    const newGrid = new ImageGrid(this.image, {
+      ...config,
+      maintainAspectRatio: false
+    });
+    return newGrid;
+  }
+
+  updatePicker() {
+    if (this.grids.length < 2) {
+      this.hidePicker();
+    } else {
+      this.showPicker();
+    }
+  }
+
+  showPicker() {
+    if (!this.picker) {
+      this.createPicker();
+    }
+    this.renderPicker();
+    this.picker.style.display = '';
+  }
+
+  hidePicker() {
+    if (this.picker) {
+      this.picker.style.display = 'none';
+    }
+  }
+
+  createPicker() {
+    const wrapper = this.image.parentElement;
+
+    // Create container for dropdown
+    this.picker = document.createElement('div');
+    this.picker.className = 'js-image-grid-dropdown-container';
+
+    // Insert after the wrapper
+    wrapper.parentNode.insertBefore(this.picker, wrapper.nextSibling);
+  }
+
+  renderPicker() {
+    if (!this.picker) return;
+
+    this.picker.innerHTML = '';
+
+    // Create dropdown select
+    const select = document.createElement('select');
+    select.className = 'js-image-grid-dropdown';
+
+    this.grids.forEach((grid, index) => {
+      const option = document.createElement('option');
+      option.value = grid.id;
+      option.textContent = grid.name;
+      if (grid.isActive) {
+        option.selected = true;
+      }
+      select.appendChild(option);
+    });
+
+    select.addEventListener('change', (e) => {
+      this.setActiveGrid(e.target.value);
+    });
+
+    this.picker.appendChild(select);
+  }
+
+  updatePickerSelection() {
+    if (!this.picker) return;
+
+    const select = this.picker.querySelector('.js-image-grid-dropdown');
+    if (select && this.activeGrid) {
+      select.value = this.activeGrid.id;
+    }
+  }
+}
+
+// Helper function to get grid manager for an image
+function getGridManager(image) {
+  return gridManagers.get(image);
 }
 
 // Helper function to initialize grids on images with data attributes
@@ -372,5 +568,5 @@ if (typeof window !== 'undefined' && !window.__JS_IMAGE_GRID_NO_AUTO_INIT__) {
   }
 }
 
-export { ImageGrid, initImageGrids };
+export { ImageGrid, getGridManager, initImageGrids };
 //# sourceMappingURL=js-image-grid.esm.js.map

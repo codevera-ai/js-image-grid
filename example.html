@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>JS Image Grid - Example</title>
-  <link rel="stylesheet" href="js-image-grid.css">
+  <link rel="stylesheet" href="dist/js-image-grid.min.css">
   <style>
     * {
       margin: 0;
@@ -213,6 +213,24 @@
       </div>
     </div>
 
+    <div class="example">
+      <h3>Multiple grids on one image</h3>
+      <p>Add multiple grids to the same image and switch between them. A grid picker appears automatically when you add a second grid. Click the "+ Add New Grid" button or use the button below to create additional grids.</p>
+      <code>const manager = ImageGrid.getGridManager(imageElement);
+manager.addNewGrid();</code>
+      <div class="image-container">
+        <img
+          id="multi-grid-example"
+          class="placeholder-image"
+          src="data:image/svg+xml,%3Csvg width='800' height='600' xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='800' height='600' fill='%23764ba2'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='Arial' font-size='24' fill='white'%3E800 x 600 Image%3C/text%3E%3C/svg%3E"
+          alt="Multiple Grids Example"
+          data-js-image-grid-cols="12"
+          data-js-image-grid-rows="12"
+        >
+      </div>
+      <button onclick="addGridToExample()" style="margin-top: 15px; padding: 10px 20px; background: #2196F3; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 14px;">Add Another Grid</button>
+    </div>
+
     <h2>Installation</h2>
     <p>Include the CSS and JavaScript files in your HTML:</p>
     <code>&lt;link rel="stylesheet" href="js-image-grid.css"&gt;
@@ -223,6 +241,25 @@
     </p>
   </div>
 
-  <script src="js-image-grid.js"></script>
+  <script src="dist/js-image-grid.js"></script>
+  <script>
+    function addGridToExample() {
+      const img = document.getElementById('multi-grid-example');
+      const manager = JSImageGrid.getGridManager(img);
+
+      if (manager) {
+        const newGrid = manager.addNewGrid();
+        manager.setActiveGrid(newGrid.id);
+      }
+    }
+
+    // Update instructions for multiple grids
+    document.addEventListener('DOMContentLoaded', function() {
+      const instructions = document.querySelector('.instructions ul');
+      const multiGridInstructions = document.createElement('li');
+      multiGridInstructions.textContent = 'When multiple grids exist on an image, use the grid picker in the top right to switch between them';
+      instructions.appendChild(multiGridInstructions);
+    });
+  </script>
 </body>
 </html>
